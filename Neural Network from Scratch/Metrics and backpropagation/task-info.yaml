@@ -1,0 +1,220 @@
+type: edu
+files:
+- name: student.py
+  visible: true
+  text: |+
+    import math
+    import random
+
+    import numpy as np
+    import pandas as pd
+    import os
+    import requests
+    from matplotlib import pyplot as plt
+    import neurolab as nl
+
+
+    # scroll to the bottom to start coding your solution
+    def scale(X_train, X_test):
+        maximus = np.concatenate((X_train, X_test)).max()
+        X_train_scaled = X_train / maximus
+        X_test_scaled = X_test / maximus
+        return X_train_scaled, X_test_scaled
+
+
+    def xavier(n_in, n_out):
+        n = n_in*n_out
+        d = np.sqrt(6 / (n_in + n_out))
+        u = np.random.uniform(-d, d, (n_in, n_out))
+        return u
+
+
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+
+    def one_hot(data: np.ndarray) -> np.ndarray:
+        y_train = np.zeros((data.size, data.max() + 1))
+        rows = np.arange(data.size)
+        y_train[rows, data] = 1
+        return y_train
+
+
+    def plot(loss_history: list, accuracy_history: list, filename='plot'):
+
+        # function to visualize learning process at stage 4
+
+        n_epochs = len(loss_history)
+
+        plt.figure(figsize=(20, 10))
+        plt.subplot(1, 2, 1)
+        plt.plot(loss_history)
+
+        plt.xlabel('Epoch number')
+        plt.ylabel('Loss')
+        plt.xticks(np.arange(0, n_epochs, 4))
+        plt.title('Loss on train dataframe from epoch')
+        plt.grid()
+
+        plt.subplot(1, 2, 2)
+        plt.plot(accuracy_history)
+
+        plt.xlabel('Epoch number')
+        plt.ylabel('Accuracy')
+        plt.xticks(np.arange(0, n_epochs, 4))
+        plt.title('Accuracy on test dataframe from epoch')
+        plt.grid()
+
+        plt.savefig(f'{filename}.png')
+
+
+    class OneLayerNeural:
+        def __init__(self, n_features, n_classes):
+            # Initiate weights and biases using Xavier
+            self.b = xavier(1, n_classes)
+            self.w = xavier(n_features, n_classes)
+            self.forward_step = None
+
+        def forward(self, X):
+            # Perform a forward step
+            forward_step = np.dot(X, self.w) + self.b
+            self.forward_step = sigmoid(forward_step)
+
+
+    if __name__ == '__main__':
+
+        if not os.path.exists('../Data'):
+            os.mkdir('../Data')
+
+        # Download data if it is unavailable.
+        if ('fashion-mnist_train.csv' not in os.listdir('../Data') and
+                'fashion-mnist_test.csv' not in os.listdir('../Data')):
+            print('Train dataset loading.')
+            url = "https://www.dropbox.com/s/5vg67ndkth17mvc/fashion-mnist_train.csv?dl=1"
+            r = requests.get(url, allow_redirects=True)
+            open('../Data/fashion-mnist_train.csv', 'wb').write(r.content)
+            print('Loaded.')
+
+            print('Test dataset loading.')
+            url = "https://www.dropbox.com/s/9bj5a14unl5os6a/fashion-mnist_test.csv?dl=1"
+            r = requests.get(url, allow_redirects=True)
+            open('../Data/fashion-mnist_test.csv', 'wb').write(r.content)
+            print('Loaded.')
+
+        # Read train, test data.
+        raw_train = pd.read_csv('../Data/fashion-mnist_train.csv')
+        raw_test = pd.read_csv('../Data/fashion-mnist_test.csv')
+
+        X_train = raw_train[raw_train.columns[1:]].values
+        X_test = raw_test[raw_test.columns[1:]].values
+
+        y_train = one_hot(raw_train['label'].values)
+        y_test = one_hot(raw_test['label'].values)
+
+        # write your code here
+
+        '''
+        #Stage 1/7:
+        a, b = scale(X_train, X_test)
+        print([a[2, 778], b[0, 774]], end=" ")
+        print(xavier(2, 3).flatten().tolist(), end=" ")
+        c = [-1, 0, 1, 2]
+        print(sigmoid(c))
+        '''
+
+        #Stage 2/7:
+        X_train, X_test = scale(X_train, X_test)
+        model = OneLayerNeural(X_train.shape[1], y_train.shape[1])
+        model.forward(X_train)
+        print(model.forward_step[:2].flatten().tolist())
+
+
+
+
+  learner_created: false
+- name: test/__init__.py
+  visible: false
+  learner_created: false
+- name: test/tests.py
+  visible: false
+  text: |
+    import numpy as np
+    from hstest import StageTest, TestCase, CheckResult
+    from hstest.stage_test import List
+    from utils.utils import get_list, full_check, custom_uniform
+    np.random.uniform = custom_uniform
+
+    # The source data I will test on
+
+    true_mse_res = [9.0]
+    true_mse_der_res = [-10, -6, -2, 2]
+    true_sigmoid_der_res = [0.19661193324148185, 0.25, 0.19661193324148185, 0.10499358540350662]
+    true_backprop_res = [0.027703041616827684]
+
+
+    class Tests3(StageTest):
+
+        def generate(self) -> List[TestCase]:
+            return [TestCase(time_limit=1000000)]
+
+        def check(self, reply: str, attach):
+            reply = reply.strip().lower()
+
+            if len(reply) == 0:
+                return CheckResult.wrong("No output was printed")
+
+            if reply.count('[') != 4 or reply.count(']') != 4:
+                return CheckResult.wrong('No expected lists were found in output')
+
+            # Getting the student's results from the reply
+
+            try:
+                mse_res, reply = get_list(reply)
+            except Exception:
+                return CheckResult.wrong('Seems that MSE output is in wrong format')
+
+            try:
+                mse_der_res, reply = get_list(reply)
+            except Exception:
+                return CheckResult.wrong('Seems that MSE derivative output is in wrong format')
+
+            try:
+                sigmoid_der_res, reply = get_list(reply)
+            except Exception:
+                return CheckResult.wrong('Seems that sigmoid derivative output is in wrong format')
+
+            try:
+                backprop_res, _ = get_list(reply)
+            except Exception:
+                return CheckResult.wrong('Seems that backpropagation output is in wrong format')
+
+            check_result = full_check(mse_res, true_mse_res, 'MSE')
+            if check_result:
+                return check_result
+            check_result = full_check(mse_der_res, true_mse_der_res, 'MSE derivative')
+            if check_result:
+                return check_result
+            check_result = full_check(sigmoid_der_res, true_sigmoid_der_res, 'sigmoid derivative')
+            if check_result:
+                return check_result
+            check_result = full_check(backprop_res, true_backprop_res, 'backpropagation')
+            if check_result:
+                return check_result
+
+            return CheckResult.correct()
+
+
+    if __name__ == '__main__':
+        Tests3().run_tests()
+  learner_created: false
+- name: tests.py
+  visible: false
+  text: |
+    from test.tests import Tests3
+
+    if __name__ == '__main__':
+        Tests3().run_tests()
+  learner_created: false
+feedback_link: https://hyperskill.org/projects/250/stages/1256/implement#comment
+status: Solved
+record: 2
